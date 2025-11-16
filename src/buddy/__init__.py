@@ -38,7 +38,8 @@ class Buddy:
 
     def control(self, result: models.dto.Result):
         self.microcontroller.send(
-            f"{self.pan.compute(result.normalized.x)}, {self.tilt.compute(result.normalized.y)}"
+            f"{self.pan.compute(result.normalized.x)};{self.tilt.compute(result.normalized.y)}\n".encode(
+            )
         )
 
     def draw(self, frame, face: models.objects.Rectangle, result: models.dto.Result):
