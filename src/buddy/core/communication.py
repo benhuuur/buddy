@@ -3,6 +3,7 @@ import time
 from abc import ABC, abstractmethod
 
 import serial
+from serial.tools import list_ports
 
 
 class Microcontroller(ABC):
@@ -35,7 +36,7 @@ class Arduino(Microcontroller):
             raise RuntimeError(f"Failed to connect to Arduino: {e}")
 
     def find(self) -> str | None:
-        ports = serial.tools.list_ports.comports()
+        ports = list_ports.comports()
         for port in ports:
             if "Arduino" in port.description or "CH340" in port.description:
                 return port.device
