@@ -2,8 +2,8 @@ import cv2
 import queue
 
 from src.buddy import models
-from src.buddy.core.controllers import Controller
 from src.buddy.core.track import Tracker
+from src.buddy.core.controllers import Controller
 
 
 class Buddy:
@@ -37,9 +37,9 @@ class Buddy:
         cv2.destroyAllWindows()
 
     def control(self, result: models.dto.Result):
+        
         self.microcontroller.send(
-            f"{self.pan.compute(result.normalized.x)};{self.tilt.compute(result.normalized.y)}\n".encode(
-            )
+            f"{-1*self.pan.compute(result.normalized.x)};{-1*self.tilt.compute(result.normalized.y)}"
         )
 
     def draw(self, frame, face: models.objects.Rectangle, result: models.dto.Result):

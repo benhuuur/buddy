@@ -1,8 +1,7 @@
 import time
+import serial
 
 from abc import ABC, abstractmethod
-
-import serial
 from serial.tools import list_ports
 
 
