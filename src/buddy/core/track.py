@@ -1,8 +1,7 @@
 import cv2
+import numpy
 import queue
 import threading
-
-import numpy
 
 from src.buddy import models, utils
 from src.buddy.core.detectors import Detector
@@ -90,7 +89,10 @@ class Tracker:
             try:
                 self.results.put((frame, faces, results), timeout=0.1)
             except queue.Full:
-                self.results.get()
-                self.frames.put((frame, faces, results), timeout=0.1)
+                try:
+                    self.results.get_nowait()
+                except queue.Empty:
+                    pass
+                self.results.put((frame, faces, results), timeout=0.1)
 
             last = (faces, results)
