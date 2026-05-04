@@ -11,36 +11,29 @@ Buddy is a face-tracking camera system that combines computer vision with hardwa
 - **Hardware Interface**: Arduino microcontroller with servo motors
 - **Python Architecture**: Modular, threaded design for optimal performance
 
-## ✨ Features
-
-- **Real-time Face Detection**: Uses Haar Cascade classifier for efficient face detection
-- **Automatic Tracking**: Continuously adjusts camera position to keep face centered
-- **PID Control**: Dual PID controllers for smooth and accurate pan/tilt movements
-- **Threaded Processing**: Separate threads for frame capture and processing
-- **Serial Communication**: Automatic Arduino port detection and communication
-- **Visual Feedback**: Real-time display with face detection overlay
-
 ## 🏗️ Architecture
 
 ```
-buddy/
-├── firmware/           # Arduino firmware for servo control
-│   └── firmware.ino   # Servo control logic
-├── src/
-│   └── buddy/
-│       ├── __init__.py      # Main Buddy class
-│       ├── __main__.py      # Entry point
-│       ├── utils.py         # Utility functions
-│       ├── core/
-│       │   ├── communication.py  # Serial communication with Arduino
-│       │   ├── controllers.py    # PID controller implementation
-│       │   ├── detectors.py      # Face detection algorithms
-│       │   └── track.py          # Camera and tracking logic
-│       └── models/
-│           ├── configs.py   # Configuration models
-│           ├── dto.py       # Data transfer objects
-│           ├── objects.py   # Core data structures
-│           └── states.py    # State classifications
+.
+├── firmware/                 # Arduino firmware for servo control
+│   └── firmware.ino          # Servo control logic
+├── logs/                     # Runtime logs (optional)
+└── src/
+  ├── __init__.py
+  └── buddy/
+    ├── __init__.py       # Main Buddy class
+    ├── __main__.py       # Entry point
+    ├── utils.py          # Utility functions
+    ├── core/
+    │   ├── communication.py  # Serial communication with Arduino
+    │   ├── controllers.py    # PID controller implementation
+    │   ├── detectors.py      # Face detection algorithms
+    │   └── track.py          # Camera and tracking logic
+    └── models/
+      ├── configs.py    # Configuration models
+      ├── dto.py        # Data transfer objects
+      ├── objects.py    # Core data structures
+      └── states.py     # State classifications
 ```
 
 ## 🔧 Hardware Requirements
@@ -51,6 +44,9 @@ buddy/
   - Tilt servo: Connected to pin 3
 - **Camera**: USB webcam or laptop camera
 - **Mounting**: Pan-tilt mechanism for camera mounting
+
+---
+**Note**: Ensure proper servo power supply to avoid brownouts. For multiple servos or high-torque servos, use an external power source.
 
 ### Wiring Diagram
 
@@ -76,11 +72,6 @@ cd buddy
 pip install -r requirements.txt
 ```
 
-**Requirements:**
-- `numpy==2.2.6`
-- `opencv-python==4.12.0.88`
-- `pyserial` (for Arduino communication)
-
 ### 3. Upload Firmware to Arduino
 
 1. Open `firmware/firmware.ino` in Arduino IDE
@@ -101,14 +92,17 @@ Edit `src/buddy/__main__.py` to adjust parameters:
 
 ```python
 camera = Camera(1)              # Camera index (0 for default, 1 for external)
-detector = Cascade(0.5)         # Detection ratio (lower = faster, less accurate)
+detector = Cascade(0.5)         # Resize ratio (lower = faster, less accurate)
 tracker = Tracker(camera, detector)
 
-# PID parameters: (setpoint, kp, ki, kd, inverted)
-pan_pid = PID(3.0, 3.8167, 0.5895, 0.5, False)
-tilt_pid = PID(3.0, 5.5577, 0., 0.5, False)
-
-buddy = Buddy(tracker, Arduino(), pan_pid, tilt_pid)
+# PID signature: PID(kp, ki, kd, setpoint=0.5)
+# measurement is normalized (0..1), so setpoint=0.5 centers the face.
+buddy = Buddy(
+  tracker, 
+  Arduino(), 
+  PID(kp=1.0, ki=0.0, kd=0.0, setpoint=0.5), 
+  PID(kp=1.0, ki=0.0, kd=0.0, setpoint=0.5)
+)
 buddy.run()
 ```
 
@@ -118,33 +112,31 @@ buddy.run()
 
 ## 🎛️ PID Tuning
 
-The system uses two PID controllers:
+The system uses two PID controllers (pan + tilt):
 
 ### Pan Controller (Horizontal)
-- **Kp**: TODO (Proportional gain)
-- **Ki**: TODO (Integral gain)
-- **Kd**: TODO (Derivative gain)
+- **Kp**: proportional gain (main responsiveness)
+- **Ki**: integral gain (removes bias/steady-state error)
+- **Kd**: derivative gain (damping / reduces overshoot)
 
 ### Tilt Controller (Vertical)
-- **Kp**: TODO (Proportional gain)
-- **Ki**: TODO (Integral gain)
-- **Kd**: TODO (Derivative gain)
+- **Kp**: proportional gain
+- **Ki**: integral gain
+- **Kd**: derivative gain
 
-To tune PID values for your setup:
-1. Start with P-only control (set Ki and Kd to 0)
-2. Increase Kp until system oscillates
-3. Add Kd to reduce oscillations
-4. Add Ki to eliminate steady-state error
+Notes:
+- The PID output is sent to the Arduino as **incremental servo steps** (delta degrees), not absolute angles.
+- Because the measurement is normalized (0..1), your gains scale “frame error” into “degrees per update”.
 
 ## 🔬 How It Works
 
 1. **Frame Capture**: Camera continuously captures video frames in a separate thread
 2. **Face Detection**: Haar Cascade classifier detects faces in frames
 3. **Position Calculation**: Face center position is normalized to frame dimensions
-4. **Error Calculation**: PID controllers compute error from center (setpoint = 0.5)
-5. **Control Signal**: Error is converted to servo movement commands
-6. **Serial Communication**: Commands sent to Arduino via serial port
-7. **Servo Movement**: Arduino adjusts pan/tilt servos to center the face
+4. **Error Calculation**: PID controllers compute error from center (`setpoint = 0.5`)
+5. **Control Signal**: PID output is converted into **delta** pan/tilt movements
+6. **Serial Communication**: Commands are sent to the Arduino via serial port
+7. **Servo Movement**: Arduino applies the delta steps and clamps within servo limits
 
 ## 📊 System Components
 
@@ -166,7 +158,7 @@ To tune PID values for your setup:
 ### Communication (Arduino)
 - Auto-detects Arduino port
 - Serial communication at 9600 baud
-- Command format: `"pan;tilt\n"`
+- Command format: `"pan;tilt"`
 
 ## 🐛 Troubleshooting
 
@@ -190,17 +182,6 @@ Servos are constrained to:
 - Pan: 0° to 180°
 - Tilt: 20° to 175°
 
-## 📝 License
-
-This project is licensed under the terms specified in the LICENSE file.
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-- Report bugs
-- Suggest features
-- Submit pull requests
-
 ## 👨‍💻 Author
 
 **benhuuur**
@@ -208,12 +189,4 @@ Contributions are welcome! Feel free to:
 
 ## 🎓 Academic Context
 
-This project was developed as part of the Process Control course at UTFPR (Federal University of Technology - Paraná), demonstrating practical applications of:
-- PID control theory
-- Real-time computer vision
-- Hardware-software integration
-- Embedded systems programming
-
----
-
-**Note**: Ensure proper servo power supply to avoid brownouts. For multiple servos or high-torque servos, use an external power source.
+This project was developed as part of the Process Control course at UTFPR (Federal University of Technology - Paraná), demonstrating practical applications of PID control theory
