@@ -28,6 +28,7 @@ class Buddy:
                 self.control(result)
                 if draw:
                     self.draw(frame, face, result)
+                break
 
             cv2.imshow("Buddy", frame)
             cv2.namedWindow("Buddy", cv2.WINDOW_FULLSCREEN)
@@ -37,7 +38,6 @@ class Buddy:
         cv2.destroyAllWindows()
 
     def control(self, result: models.dto.Result):
-        
         self.microcontroller.send(
             f"{-1*self.pan.compute(result.normalized.x)};{-1*self.tilt.compute(result.normalized.y)}"
         )
